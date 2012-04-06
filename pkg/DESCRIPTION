@@ -1,9 +1,9 @@
-Package: pkg
+Package: qmcmc
 Type: Package
-Title: What the package does (short line)
+Title: MCMC routines
 Version: 1.0
 Date: 2012-04-05
-Author: Who wrote it
-Maintainer: Who to complain to <yourfault@somewhere.net>
-Description: More about what it does (maybe more than one line)
-License: What license is it under?
+Author: Chris DuBois
+Maintainer: Chris DuBois <chris.dubois@gmail.com>
+Description: Quick interface for standard MCMC techniques
+License: GLP 2.0
