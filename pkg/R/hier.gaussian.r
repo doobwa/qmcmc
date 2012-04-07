@@ -18,7 +18,7 @@ loglikelihood <- function(y,theta,grad=FALSE) {
 }
 
 ##' Log prior for theta_j (i.e. for a single case j)
-lprior <- function(theta,mu,priors,grad=FALSE) {
+lprior.nosigma <- function(theta,mu,priors,grad=FALSE) {
   a <- priors$sigma$alpha
   b <- priors$sigma$beta
   lprior <- -.5 * log(2*pi) + a*log(b) - log(gamma(a)) + log(gamma(a+.5)) - 
@@ -30,14 +30,23 @@ lprior <- function(theta,mu,priors,grad=FALSE) {
   return(lprior)
 }
 
+lprior <- function(theta,mu,sigma,priors,grad=FALSE) {
+  require(MCMCpack)
+  sum(dmvnorm(theta,mu,diag(sigma),log=TRUE)) +
+  sum(log(dinvgamma(sigma,priors$sigma$alpha,priors$sigma$beta)))
+}
+
 lgradient <- function(y,theta,priors) {
 
 }
 
-
-lposterior <- function(y,theta,mu,priors=list(theta=list(mu=0,sigma=1),sigma=list(alpha=2,beta=.1)),grad=FALSE){
+lposterior <- function(y,theta,mu,sigma,priors=list(theta=list(mu=0,sigma=1),sigma=list(alpha=2,beta=.1)),grad=FALSE,collapse.sigma=TRUE){
   llk <- loglikelihood(y,theta,grad)
-  lp <- lprior(theta,mu,priors,grad)
+  if (collapse.sigma) {
+    lp <- lprior.nosigma(theta,mu,priors,grad)
+  } else {
+    lp <- lprior(theta,mu,sigma,priors,grad)
+  }
   lpost <- llk+lp
   if (grad) {
     attr(lpost,"grad") <- attr(llk,"grad") + attr(lp,"grad")
@@ -89,7 +98,7 @@ mcmc.hier.gaussian <- function(ys,method,theta=NULL,niter=100,burnin=10,priors=l
     lower <- lapply(1:J,function(j) {
       lp <- function(val) {
         value$theta[j,] <- val
-        lposterior(ys[[j]],value$theta[j,],value$mu,priors)
+        lposterior(ys[[j]],value$theta[j,],value$mu,value$sigma,priors)
       }
       current <- value$theta[j,]
       method(current, lp)

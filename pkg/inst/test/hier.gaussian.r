@@ -5,6 +5,11 @@ library(mvtnorm)
 # theta_jp ~ N(mu_p,sigma_p^2)
 # sigma_p ~ InvGamma(alpha,beta)
 
+
+# Explore prior on sigma
+xs <- seq(.01,10,by=.1)
+plot(xs,dinvgamma(xs,.1,.5),type="l")
+
 set.seed(1)
 mu <- c(0,0)
 sigma <- c(3,3)
@@ -12,43 +17,119 @@ J <- 5
 theta <- t(sapply(1:J,function(j) {
   rmvnorm(1,mu,diag(sigma))
 }))
-priors <- list(mu=list(mu=0,sigma=3),sigma=list(alpha=2,beta=.1))
+priors <- list(mu=list(mu=0,sigma=3),sigma=list(alpha=.1,beta=.5))
 
-n <- rep(4,J)                
+# Generate data
+n <- rep(10,J)                
 ys <- lapply(1:J,function(j) {
-  rmvnorm(n[j],theta[1,],diag(2))
+  rmvnorm(n[j],theta[j,],diag(2))
 })
 
-value <- list(theta=theta,mu=mu,sigma=sigma)
+value <- truth <- list(theta=theta,mu=mu,sigma=sigma)
+
+# Compare true values to empirical estimates
+colMeans(ys[[5]])
+truth$theta[5,]
 
 test_that("can gibbs sample mu and sigma",{
   gibbs.mu.hier.gaussian(value,priors)
   gibbs.sigma.hier.gaussian(value,priors)
 })
 
+mse <- function(a,b) mean((a-b)^2)
+
+test_that("gibbs sampling mu works",{
+  niter <- 100
+  value <- truth
+  values <- list()
+  for (iter in 1:niter) {
+    value <- gibbs.mu.hier.gaussian(value,priors)
+    values[[iter]] <- value
+  }
+  mu.samples <- do.call(rbind,lapply(values,function(v) v$mu))
+                                        # should be closer to 0
+  err <- mse(colMeans(mu.samples),colMeans(truth$theta))
+  expect_that(err < .01, is_true())
+})
+
+test_that("gibbs sampling sigma works",{
+  value <- truth
+  values <- list()
+  for (iter in 1:niter) {
+    value <- gibbs.sigma.hier.gaussian(value,priors)
+    values[[iter]] <- value
+  }
+  sigma.samples <- do.call(rbind,lapply(values,function(v) v$sigma))
+  colMeans(sigma.samples)
+  apply(truth$theta,2,sd)
+})
+
+# Make sure basic functions run
 loglikelihood(ys[[1]],theta[1,],grad=FALSE)
 lposterior(ys[[1]],theta[1,],mu)
-lprior(theta[1,],mu,priors,grad=TRUE)
+lprior(theta[1,],mu,sigma,priors,grad=TRUE)
 
+# Compare prior on theta with sigma and with sigma integrated out
+par(mfrow=c(1,2))
+thetas <- seq(-3,3,by=.01)
+lps <- sapply(thetas,function(x) {
+  lprior(c(x,theta[1,2]),mu,sigma,priors)
+})
+plot(thetas,lps,type="l")
+lps <- sapply(thetas,function(x) {
+  lprior.nosigma(c(x,theta[1,2]),mu,priors)
+})
+plot(thetas,lps,type="l",col="red")
+
+# Sample just a single lower level theta
+j <- 1
+cs <- TRUE
+value <- truth
+values <- list()
 method <- slice
-lower <- lapply(1:J,function(j) {
+for (iter in 1:50) {
   lp <- function(val) {
     value$theta[j,] <- val
-    lposterior(ys[[j]],value$theta[j,],value$mu,priors)
+    lposterior(ys[[j]],value$theta[j,],value$mu,value$sigma,priors,collapse.sigma=cs)
   }
-  current <- theta[j,]
-  method(current, lp)
-})
-lower <- do.call(rbind,lower)#t(sapply(lower,function(x) x$final$pv))
+  current <- value$theta[j,]
+  value$theta[j,] <- method(current, lp)
+  values[[iter]] <- value$theta[j,,drop=FALSE]
+}
+values <- do.call(rbind,values)
+plot(values)
+points(truth$theta[j,,drop=FALSE],col="red")
 
-lposterior.all(ys,value,priors)
+# Plot sampled values to true values
+par(mfrow=c(1,2))
+plot(values[,1],type="l")
+abline(h=truth$theta[j,1],col="red")
+plot(values[,2],type="l")
+abline(h=truth$theta[j,2],col="red")
 
-test_that("can sample lower level",{
+# Sample all lower level
+value <- truth
+values <- list()
+method <- slice
+for (iter in 1:50) {
+  lower <- lapply(1:J,function(j) {
+    lp <- function(val) {
+      value$theta[j,] <- val
+      lposterior(ys[[j]],value$theta[j,],value$mu,value$sigma,priors)
+    }
+    current <- value$theta[j,]
+    method(current, lp)
+  })
+  value$theta <- do.call(rbind,lower)#t(sapply(lower,function(x) x$final$pv))
+  values[[iter]] <- value$theta
+}
+values <- melt(values)
 
-  value$pv <- theta[1,]
-  lprior(value,grad=TRUE)
+th <- melt(truth$theta)
+qplot(L1,value,data=values,geom="line") + geom_hline(data=th,aes(yintercept=value),colour="red") + facet_grid(X1~X2)
 
-})
-
+# Fit all at once
 fit <- mcmc.hier.gaussian(ys,slice)
 lposterior.all(ys,fit$value,priors)
+lposterior.all(ys,truth,priors)
+
