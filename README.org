@@ -1,0 +1,11 @@
+* qmcmc: an R package for simple MCMC routines
+
+Several MCMC routines are included with a common interface:
+Metropolis-Hastings, slice sampling, and Hamiltonian Monte
+Carlo.  All you need to do is specify a function that computes an
+unnormalized density (e.g. a posterior distribution).  For HMC, you'll
+need to set the attribute of this value to be the gradient.
+
+This is a similar effort to Radford Neal's GRIMS scripts.  This package
+is less general and flexible, but so far I have found it easier to debug and extend.
+
