@@ -9,7 +9,7 @@
 ##' @param lgrad compute the log gradient
 ##' @return log posterior or log gradient
 
-loglikelihood <- function(y,theta,grad=FALSE) {
+loglikelihood.hier.gaussian <- function(y,theta,grad=FALSE) {
   llk <- sum(apply(y,1,function(x) dmvnorm(x,theta,diag(2),log=TRUE)))
   if (grad) {
     attr(llk,"grad") <- lgradient(y,theta)
@@ -18,7 +18,7 @@ loglikelihood <- function(y,theta,grad=FALSE) {
 }
 
 ##' Log prior for theta_j (i.e. for a single case j)
-lprior.nosigma <- function(theta,mu,priors,grad=FALSE) {
+lprior.nosigma.hier.gaussian <- function(theta,mu,priors,grad=FALSE) {
   a <- priors$sigma$alpha
   b <- priors$sigma$beta
   lprior <- -.5 * log(2*pi) + a*log(b) - log(gamma(a)) + log(gamma(a+.5)) - 
@@ -30,22 +30,24 @@ lprior.nosigma <- function(theta,mu,priors,grad=FALSE) {
   return(lprior)
 }
 
-lprior <- function(theta,mu,sigma,priors,grad=FALSE) {
+lprior.hier.gaussian <- function(theta,mu,sigma,priors,grad=FALSE) {
   require(MCMCpack)
-  sum(dmvnorm(theta,mu,diag(sigma),log=TRUE)) +
-  sum(log(dinvgamma(sigma,priors$sigma$alpha,priors$sigma$beta)))
+  upper <- sum(dmvnorm(theta,mu,diag(sigma),log=TRUE))
+  lower <- dinvgamma(sigma^2,priors$sigma$alpha,priors$sigma$beta)
+  lower <- sum(log(lower))
+  return(upper + lower)
 }
 
 lgradient <- function(y,theta,priors) {
 
 }
 
-lposterior <- function(y,theta,mu,sigma,priors=list(theta=list(mu=0,sigma=1),sigma=list(alpha=2,beta=.1)),grad=FALSE,collapse.sigma=TRUE){
-  llk <- loglikelihood(y,theta,grad)
+lposterior.hier.gaussian <- function(y,theta,mu,sigma,priors=list(theta=list(mu=0,sigma=1),sigma=list(alpha=2,beta=.1)),grad=FALSE,collapse.sigma=TRUE){
+  llk <- loglikelihood.hier.gaussian(y,theta,grad)
   if (collapse.sigma) {
-    lp <- lprior.nosigma(theta,mu,priors,grad)
+    lp <- lprior.nosigma.hier.gaussian(theta,mu,priors,grad)
   } else {
-    lp <- lprior(theta,mu,sigma,priors,grad)
+    lp <- lprior.hier.gaussian(theta,mu,sigma,priors,grad)
   }
   lpost <- llk+lp
   if (grad) {
@@ -57,9 +59,9 @@ lposterior <- function(y,theta,mu,sigma,priors=list(theta=list(mu=0,sigma=1),sig
 lposterior.all <- function(ys,value,priors) {
   J <- length(ys)
   sum(sapply(1:J,function(j) {
-    lposterior(ys[[j]],value$theta[j,],value$mu,priors)
+    lposterior.hier.gaussian(ys[[j]],value$theta[j,],value$mu,priors)
   })) +
-    sum(dgamma(value$sigma,priors$sigma$alpha,priors$sigma$beta,log=TRUE))
+    sum(dgamma(value$sigma^2,priors$sigma$alpha,priors$sigma$beta,log=TRUE))
 }
 
 ##' Example of an mcmc function
@@ -74,7 +76,7 @@ mcmc.hier.gaussian <- function(ys,method,theta=NULL,niter=100,burnin=10,priors=l
   value <- list()
   J <- length(ys)
   value$mu <- rnorm(2,priors$mu$mu,priors$mu$sigma)
-  value$sigma <- rgamma(2,priors$sigma$alpha,priors$sigma$beta)
+  value$sigma <- sqrt(rgamma(2,priors$sigma$alpha,priors$sigma$beta))
   value$theta <- t(sapply(1:J,function(j) {
     c(rnorm(1,value$mu[1],value$sigma[1]),
       rnorm(1,value$mu[2],value$sigma[2]))
@@ -98,7 +100,7 @@ mcmc.hier.gaussian <- function(ys,method,theta=NULL,niter=100,burnin=10,priors=l
     lower <- lapply(1:J,function(j) {
       lp <- function(val) {
         value$theta[j,] <- val
-        lposterior(ys[[j]],value$theta[j,],value$mu,value$sigma,priors)
+        lposterior.hier.gaussian(ys[[j]],value$theta[j,],value$mu,value$sigma,priors)
       }
       current <- value$theta[j,]
       method(current, lp)

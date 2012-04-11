@@ -1,4 +1,5 @@
 library(mvtnorm)
+library(MCMCpack)
 
 # Set up example of hierarchical normal data
 # y_ij ~ N_2(theta_j,1)
@@ -6,18 +7,18 @@ library(mvtnorm)
 # sigma_p ~ InvGamma(alpha,beta)
 
 
-# Explore prior on sigma
+# Explore prior on sigma^2
 xs <- seq(.01,10,by=.1)
-plot(xs,dinvgamma(xs,.1,.5),type="l")
+plot(xs,dinvgamma(xs,2,2),type="l")
 
 set.seed(1)
 mu <- c(0,0)
 sigma <- c(3,3)
-J <- 5
+J <- 10
 theta <- t(sapply(1:J,function(j) {
   rmvnorm(1,mu,diag(sigma))
 }))
-priors <- list(mu=list(mu=0,sigma=3),sigma=list(alpha=.1,beta=.5))
+priors <- list(mu=list(mu=0,sigma=3),sigma=list(alpha=2,beta=2))
 
 # Generate data
 n <- rep(10,J)                
@@ -37,9 +38,9 @@ test_that("can gibbs sample mu and sigma",{
 })
 
 mse <- function(a,b) mean((a-b)^2)
+niter <- 100
 
 test_that("gibbs sampling mu works",{
-  niter <- 100
   value <- truth
   values <- list()
   for (iter in 1:niter) {
@@ -61,23 +62,24 @@ test_that("gibbs sampling sigma works",{
   }
   sigma.samples <- do.call(rbind,lapply(values,function(v) v$sigma))
   colMeans(sigma.samples)
-  apply(truth$theta,2,sd)
+  apply(truth$theta,2,sd)^2
 })
 
 # Make sure basic functions run
-loglikelihood(ys[[1]],theta[1,],grad=FALSE)
-lposterior(ys[[1]],theta[1,],mu)
-lprior(theta[1,],mu,sigma,priors,grad=TRUE)
+loglikelihood.hier.gaussian(ys[[1]],theta[1,],grad=FALSE)
+lposterior.hier.gaussian(ys[[1]],theta[1,],mu)
+lprior.hier.gaussian(theta[1,],mu,sigma,priors,grad=FALSE)
 
 # Compare prior on theta with sigma and with sigma integrated out
 par(mfrow=c(1,2))
 thetas <- seq(-3,3,by=.01)
 lps <- sapply(thetas,function(x) {
-  lprior(c(x,theta[1,2]),mu,sigma,priors)
+  lprior.hier.gaussian(c(x,theta[1,2]),mu,sigma,priors)
 })
 plot(thetas,lps,type="l")
+
 lps <- sapply(thetas,function(x) {
-  lprior.nosigma(c(x,theta[1,2]),mu,priors)
+  lprior.nosigma.hier.gaussian(c(x,theta[1,2]),mu,priors)
 })
 plot(thetas,lps,type="l",col="red")
 
@@ -90,7 +92,7 @@ method <- slice
 for (iter in 1:50) {
   lp <- function(val) {
     value$theta[j,] <- val
-    lposterior(ys[[j]],value$theta[j,],value$mu,value$sigma,priors,collapse.sigma=cs)
+    lposterior.hier.gaussian(ys[[j]],value$theta[j,],value$mu,value$sigma,priors,collapse.sigma=cs)
   }
   current <- value$theta[j,]
   value$theta[j,] <- method(current, lp)
@@ -115,7 +117,7 @@ for (iter in 1:50) {
   lower <- lapply(1:J,function(j) {
     lp <- function(val) {
       value$theta[j,] <- val
-      lposterior(ys[[j]],value$theta[j,],value$mu,value$sigma,priors)
+      lposterior.hier.gaussian(ys[[j]],value$theta[j,],value$mu,value$sigma,priors)
     }
     current <- value$theta[j,]
     method(current, lp)
@@ -129,7 +131,10 @@ th <- melt(truth$theta)
 qplot(L1,value,data=values,geom="line") + geom_hline(data=th,aes(yintercept=value),colour="red") + facet_grid(X1~X2)
 
 # Fit all at once
-fit <- mcmc.hier.gaussian(ys,slice)
-lposterior.all(ys,fit$value,priors)
+fit <- mcmc.hier.gaussian(ys,slice,priors=priors)
+sigmas <- do.call(rbind,lapply(fit$values,function(f) f$sigma))
+plot(sigmas)
+
+lposterior.all(ys,fit$value,priors) # TODO: broken
 lposterior.all(ys,truth,priors)
 
