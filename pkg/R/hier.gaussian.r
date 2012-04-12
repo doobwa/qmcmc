@@ -141,7 +141,7 @@ gibbs.sigma.hier.gaussian <- function(value,priors) {
   b <- priors$sigma$beta
   mu.p <- matrix(value$mu,nr=J,nc=P,byrow=TRUE)
   s2  <- .5*colSums((value$theta - mu.p)^2)
-  value$sigma <- sqrt(rinvgamma(P,a + P/2, b + s2))
+  value$sigma <- sqrt(rinvgamma(P,a + J/2, b + s2))
   return(value)
 }
 
