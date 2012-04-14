@@ -1,10 +1,10 @@
 ##' General purpose Metropolis-Hastings sampler
-##' @param current
-##' @param likelihood
+##' @param current parameter vector
+##' @param lposterior function returning an (unnormalized) density
 ##' @param olp log density of current
 ##' @param sd  standard deviation for Gaussian proposal density
 ##' @return new state and its log density as an attribute
-
+##' @export
 mh <- function(current,lposterior,olp=NULL,sd=.1) {
   if (is.null(olp)) {
     olp <- attr(current,"log.density") <- lposterior(current)
@@ -20,9 +20,10 @@ mh <- function(current,lposterior,olp=NULL,sd=.1) {
 
 ##' General purpose slice sampler (Radford Neal's code)
 ##' @param current parameter vector
-##' @param lposterior function returning the log posterior
+##' @param lposterior function returning an (unnormalized) density
 ##' @param olp log density of current
 ##' @param sd  standard deviation for Gaussian proposal density
+##' @export
 ##' @return new state and its log density as an attribute
 slice <- function(current,lposterior,olp=NULL,m=20) {
   if (is.null(olp)) {
@@ -46,6 +47,8 @@ slice <- function(current,lposterior,olp=NULL,m=20) {
 ##' @param lposterior function returning the log posterior
 ##' @param epsilon step size
 ##' @param L number of steps
+##' @export 
+##' @return new parameter vector 
 ##' 
 ## Changed U and grad_U to not be negative llk, etc.
 ## Added log.density attributes

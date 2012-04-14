@@ -1,11 +1,9 @@
-library(mvtnorm)
-library(MCMCpack)
+context("simple examples run")
 
 # Set up example of hierarchical normal data
 # y_ij ~ N_2(theta_j,1)
 # theta_jp ~ N(mu_p,sigma_p^2)
 # sigma_p ~ InvGamma(alpha,beta)
-
 
 # Explore prior on sigma^2
 xs <- seq(.01,10,by=.1)
@@ -18,7 +16,7 @@ J <- 10
 theta <- t(sapply(1:J,function(j) {
   rmvnorm(1,mu,diag(sigma))
 }))
-priors <- list(mu=list(mu=0,sigma=3),sigma=list(alpha=2,beta=2))
+priors <- list(mu=list(mu=0,sigma=3),sigma=list(alpha=1,beta=2))
 
 # Generate data
 n <- rep(10,J)                
@@ -62,7 +60,7 @@ test_that("gibbs sampling sigma works",{
   }
   sigma.samples <- do.call(rbind,lapply(values,function(v) v$sigma))
   colMeans(sigma.samples)
-  apply(truth$theta,2,sd)^2
+  apply(truth$theta,2,sd)
 })
 
 # Make sure basic functions run
@@ -71,17 +69,15 @@ lposterior.hier.gaussian(ys[[1]],theta[1,],mu)
 lprior.hier.gaussian(theta[1,],mu,sigma,priors,grad=FALSE)
 
 # Compare prior on theta with sigma and with sigma integrated out
-par(mfrow=c(1,2))
 thetas <- seq(-3,3,by=.01)
 lps <- sapply(thetas,function(x) {
   lprior.hier.gaussian(c(x,theta[1,2]),mu,sigma,priors)
 })
 plot(thetas,lps,type="l")
-
 lps <- sapply(thetas,function(x) {
   lprior.nosigma.hier.gaussian(c(x,theta[1,2]),mu,priors)
 })
-plot(thetas,lps,type="l",col="red")
+lines(thetas,lps,type="l",col="red")
 
 # Sample just a single lower level theta
 j <- 1
@@ -125,6 +121,9 @@ for (iter in 1:50) {
   value$theta <- do.call(rbind,lower)#t(sapply(lower,function(x) x$final$pv))
   values[[iter]] <- value$theta
 }
+library(reshape)
+library(ggplot2)
+
 values <- melt(values)
 
 th <- melt(truth$theta)

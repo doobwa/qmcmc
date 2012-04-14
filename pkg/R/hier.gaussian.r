@@ -7,6 +7,7 @@
 ##' @param priors 
 ##' @param lp compute the log likelihood
 ##' @param lgrad compute the log gradient
+##' @export
 ##' @return log posterior or log gradient
 
 loglikelihood.hier.gaussian <- function(y,theta,grad=FALSE) {
@@ -18,6 +19,7 @@ loglikelihood.hier.gaussian <- function(y,theta,grad=FALSE) {
 }
 
 ##' Log prior for theta_j (i.e. for a single case j)
+##' @export
 lprior.nosigma.hier.gaussian <- function(theta,mu,priors,grad=FALSE) {
   a <- priors$sigma$alpha
   b <- priors$sigma$beta
@@ -30,8 +32,9 @@ lprior.nosigma.hier.gaussian <- function(theta,mu,priors,grad=FALSE) {
   return(lprior)
 }
 
+##' Log prior for theta_j (with sigma)
+##' @export
 lprior.hier.gaussian <- function(theta,mu,sigma,priors,grad=FALSE) {
-  require(MCMCpack)
   upper <- sum(dmvnorm(theta,mu,diag(sigma),log=TRUE))
   lower <- dinvgamma(sigma^2,priors$sigma$alpha,priors$sigma$beta)
   lower <- sum(log(lower))
@@ -42,6 +45,17 @@ lgradient <- function(y,theta,priors) {
 
 }
 
+##' Log posterior for hierarchical gaussian model
+##' @param y 
+##' @param theta 
+##' @param mu 
+##' @param sigma 
+##' @param priors 
+##' @param sigma 
+##' @param grad 
+##' @param collapse.sigma
+##' @export
+##' @return log posterior density
 lposterior.hier.gaussian <- function(y,theta,mu,sigma,priors=list(theta=list(mu=0,sigma=1),sigma=list(alpha=2,beta=.1)),grad=FALSE,collapse.sigma=TRUE){
   llk <- loglikelihood.hier.gaussian(y,theta,grad)
   if (collapse.sigma) {
@@ -64,13 +78,18 @@ lposterior.all <- function(ys,value,priors) {
     sum(dgamma(value$sigma^2,priors$sigma$alpha,priors$sigma$beta,log=TRUE))
 }
 
-##' Example of an mcmc function
+##' @title MCMC for hierarchical normal model
 ##' @param ys list of vectors
 ##' @param method mcmc method to use
-##' @param param 
+##' @param theta 
+##' @param niter 
+##' @param burnin 
+##' @param priors 
+##' @param verbose 
+##' @param ... pass extra parameters to the MCMC routine
 ##' @param beta current
+##' @export
 ##' @return list with parameters at each iteration and a vector of log posteriors at each iteration
-
 mcmc.hier.gaussian <- function(ys,method,theta=NULL,niter=100,burnin=10,priors=list(mu=list(mu=0,sigma=1),sigma=list(alpha=2,beta=.1)),verbose=TRUE,...) {
   
   value <- list()
@@ -127,6 +146,11 @@ rinvgamma <- function(n,alpha,beta) {  # using beta=10
   1/rgamma(n,alpha,beta)
 }
 
+##' @title Gibbs sample for mu in hierarchical gaussian model
+##' @param value 
+##' @param priors
+##' @export
+##' @return new parameter list
 gibbs.mu.hier.gaussian <- function(value,priors) {
   P <- ncol(value$theta)
   J <- nrow(value$theta)
@@ -134,6 +158,11 @@ gibbs.mu.hier.gaussian <- function(value,priors) {
   return(value) 
 }
 
+##' @title Gibbs sample sigma in hierarchical gaussian model
+##' @param value 
+##' @param priors
+##' @export
+##' @return new parameter list
 gibbs.sigma.hier.gaussian <- function(value,priors) {
   P <- ncol(value$theta)
   J <- nrow(value$theta)

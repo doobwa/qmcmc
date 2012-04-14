@@ -7,3 +7,12 @@ Author: Chris DuBois
 Maintainer: Chris DuBois <chris.dubois@gmail.com>
 Description: Quick interface for standard MCMC techniques
 License: GLP 2.0
+Imports:
+    MCMCpack,
+    mvtnorm
+Collate:
+    'hier.gaussian.r'
+    'hmc.r'
+    'pkg-internal.R'
+    'samplers.r'
+    'slice.r'

@@ -1,3 +1,6 @@
+# Modifications were made so that no global variables are used. (C DuBois)
+
+#####################################
 # R FUNCTIONS FOR PERFORMING UNIVARIATE SLICE SAMPLING.
 #
 # Radford M. Neal, 17 March 2008.
@@ -13,9 +16,6 @@
 
 
 # GLOBAL VARIABLES FOR RECORDING PERFORMANCE.
-
-uni.slice.calls <- 0	# Number of calls of the slice sampling function
-uni.slice.evals <- 0	# Number of density evaluations done in these calls
 
 
 # UNIVARIATE SLICE SAMPLING WITH STEPPING OUT AND SHRINKAGE.
@@ -50,7 +50,7 @@ uni.slice.evals <- 0	# Number of density evaluations done in these calls
 # In addition to giving wrong answers, wrong values for gx0 may result in
 # the uni.slice function going into an infinite loop.
 
-uni.slice <- function (x0, g, w=1, m=Inf, lower=-Inf, upper=+Inf, gx0=NULL)
+uni.slice.alt <- function (x0, g, w=1, m=Inf, lower=-Inf, upper=+Inf, gx0=NULL)
 {
   # Check the validity of the arguments.
 
@@ -67,13 +67,16 @@ uni.slice <- function (x0, g, w=1, m=Inf, lower=-Inf, upper=+Inf, gx0=NULL)
   }
 
   # Keep track of the number of calls made to this function.
+  uni.slice.calls <- 0	# Number of calls of the slice sampling function
+  uni.slice.evals <- 0	# Number of density evaluations done in these calls
 
-  uni.slice.calls <<- uni.slice.calls + 1
+
+  uni.slice.calls <- uni.slice.calls + 1
 
   # Find the log density at the initial point, if not already known.
 
   if (is.null(gx0)) 
-  { uni.slice.evals <<- uni.slice.evals + 1
+  { uni.slice.evals <- uni.slice.evals + 1
     gx0 <- g(x0)
   }
 
@@ -94,14 +97,14 @@ uni.slice <- function (x0, g, w=1, m=Inf, lower=-Inf, upper=+Inf, gx0=NULL)
   { 
     repeat
     { if (L<=lower) break
-      uni.slice.evals <<- uni.slice.evals + 1
+      uni.slice.evals <- uni.slice.evals + 1
       if (g(L)<=logy) break
       L <- L - w
     }
 
     repeat
     { if (R>=upper) break
-      uni.slice.evals <<- uni.slice.evals + 1
+      uni.slice.evals <- uni.slice.evals + 1
       if (g(R)<=logy) break
       R <- R + w
     }
@@ -114,7 +117,7 @@ uni.slice <- function (x0, g, w=1, m=Inf, lower=-Inf, upper=+Inf, gx0=NULL)
 
     while (J>0)
     { if (L<=lower) break
-      uni.slice.evals <<- uni.slice.evals + 1
+      uni.slice.evals <- uni.slice.evals + 1
       if (g(L)<=logy) break
       L <- L - w
       J <- J - 1
@@ -122,7 +125,7 @@ uni.slice <- function (x0, g, w=1, m=Inf, lower=-Inf, upper=+Inf, gx0=NULL)
 
     while (K>0)
     { if (R>=upper) break
-      uni.slice.evals <<- uni.slice.evals + 1
+      uni.slice.evals <- uni.slice.evals + 1
       if (g(R)<=logy) break
       R <- R + w
       K <- K - 1
@@ -144,7 +147,7 @@ uni.slice <- function (x0, g, w=1, m=Inf, lower=-Inf, upper=+Inf, gx0=NULL)
   { 
     x1 <- runif(1,L,R)
 
-    uni.slice.evals <<- uni.slice.evals + 1
+    uni.slice.evals <- uni.slice.evals + 1
     gx1 <- g(x1)
 
     if (gx1>=logy) break
@@ -160,10 +163,11 @@ uni.slice <- function (x0, g, w=1, m=Inf, lower=-Inf, upper=+Inf, gx0=NULL)
   # Return the point sampled, with its log density attached as an attribute.
 
   attr(x1,"log.density") <- gx1
+  attr(x1,"uni.slice.evals") <- uni.slice.evals
+  attr(x1,"uni.slice.calls") <- uni.slice.calls
   return (x1)
   
 }
-
 
 # FUNCTION TO TEST THE UNI.SLICE FUNCTION.  
 #
@@ -184,7 +188,7 @@ uni.slice <- function (x0, g, w=1, m=Inf, lower=-Inf, upper=+Inf, gx0=NULL)
 #     on 200 equally spaced points from the sample generated (which are
 #     presumed to be virtually independent)
 
-uni.slice.test <- function ()
+uni.slice.alt.test <- function ()
 {
   postscript("slice-test.ps")
   par(mfrow=c(2,2))
@@ -193,8 +197,8 @@ uni.slice.test <- function ()
 
   updates <- function (x0, g, reuse=FALSE)
   { 
-    uni.slice.calls <<- 0
-    uni.slice.evals <<- 0
+    uni.slice.calls <- 0
+    uni.slice.evals <- 0
 
     s <<- numeric(ss)
     x1 <- x0
@@ -207,6 +211,8 @@ uni.slice.test <- function ()
         { x1 <- uni.slice (x1, g, w=w, m=m, lower=lower, upper=upper, 
                            gx0=last.g)
           last.g <- attr(x1,"log.density")
+          uni.slice.calls <- uni.slice.calls + attr(x1,"uni.slice.calls")
+          uni.slice.evals <- uni.slice.evals + attr(x1,"uni.slice.evals")
         }
         else
         { x1 <- uni.slice (x1, g, w=w, m=m, lower=lower, upper=upper)
@@ -344,3 +350,4 @@ uni.slice.test <- function ()
 
   dev.off()
 }
+
